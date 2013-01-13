@@ -1,0 +1,5 @@
+*.pyc
+*.pkl
+*.swp
+my_amazon_access_key
+my_google_api_key
