@@ -1,6 +1,8 @@
 import cPickle
 import sys
 import requests
+import cmd
+
 
 RESULTS_LIMIT = 5
 
@@ -139,10 +141,11 @@ class List:
         self.items = []
         self.item_type = item_type # item type
 
-    def add(self):
+    def add(self, title):
         '''Add a media item to the list. We use Item.standardize() to pick the right one'''
         print "Adding to list \"{}\" (media type: {})".format(self.name, self.item_type.__name__)
-        title = raw_input("Enter title of item: ")
+        if not title:
+            title = raw_input("Enter title of item: ")
         item = self.item_type(title)
         if item.standardize() != -1: # make sure user picked an item before adding it
             self.items.append(item)
@@ -160,16 +163,16 @@ class List:
         return ret
 
 
-class Collection():
+class Collection(cmd.Cmd):
     
-    def __init__(self):
+    def __init__(self, name):
+        cmd.Cmd.__init__(self)
         # set up media lists (used later)
         self.media_l = [Movie, Book, Album]
         self.media_d = {} # {'m' : Movie, 'b' : Book, ...}
         for m in self.media_l:
             self.media_d[m.__name__[0].lower()] = m
 
-        name = raw_input("Enter name of collection: ")
         try: # load collection if it already exists
             self.load(name)
             print "Collection {} found, loading from save".format(name)
@@ -179,48 +182,82 @@ class Collection():
             self.lists = []
         self.cur_list = 0
 
-    def add_list(self):
+    def do_add_list(self, list_name):
         '''Add a list of media items. All items in list have the same media type.'''
+        #list_name = raw_input("Enter list name: ")
+
+        if list_name in [l.name for l in self.lists]:
+            print "A list called \"{}\" already exists!".format(list_name)
+            return -1
+        elif list_name == '':
+            list_name = raw_input("Enter list name: ")
+
         list_type = '-1'
         # make our nice media type string "(m)ovie, (b)ook, ..."
         media_str = ', '.join(["({}){}".format(k, self.media_d[k].__name__[1:]) for k in self.media_d.keys()])
 
         while list_type not in self.media_d.keys():
             list_type = raw_input("Enter list type - {}: ".format(media_str))
-        list_name = raw_input("Enter list name: ")
         self.lists.append(List(list_name, self.media_d[list_type]))
         # switch to the new list (user probably wanted to add item to this list)
-        self.cur_list = len(self.lists) - 1
+        self.do_switch_list(list_name)
         print "Switched current list to new list \"{}\"".format(list_name)
 
-    def switch_list(self):
+    def do_switch_list(self, list_name):
         '''Change the active media list.'''
         if self.lists == []:
             print "Add a list first."
             return -1
-        choices_str = ''
+        #choices_str = ''
+        #for i in range(len(self.lists)):
+        #    choices_str += self.lists[i].name + '({}) '.format(i)
+        #i = -1
+        #while not (0 <= i < len(self.lists)):
+        #    i = input("Which list to make active? {}".format(choices_str))
+
+        found = False
         for i in range(len(self.lists)):
-            choices_str += self.lists[i].name + '({}) '.format(i)
-        i = -1
-        while not (0 <= i < len(self.lists)):
-            i = input("Which list to make active? {}".format(choices_str))
-        self.cur_list = i
+            if list_name == self.lists[i].name:
+                found = True
+                self.cur_list = i # list names can't be duplicated, so it's fine to finish the loop
+        if not found:
+            print "Couldn't find list \"{}\"".format(list_name)
+        # change name to reflect which list we're currently in
+        if self.prompt == "(Cmd) ":
+            self.prompt = self.prompt[:-2] + ':' + self.lists[self.cur_list].name + ') '
+        else:
+            self.prompt = self.prompt.split(':')[0] + ':' + self.lists[self.cur_list].name + ') '
         
-    def add_item(self):
+    def do_add_item(self, line):
         '''Add a media item to a media list.'''
         if self.lists == []:
             print "Add a list first."
             return -1
-        self.lists[self.cur_list].add()
+        args = line.split()
+        if len(args) == 0:
+            title = raw_input('Enter item name: ')
+        elif len(args) == 1:
+            title = args[0]
+        else:
+            # "add_item list_name title"
+            self.do_switch_list(args[0])
+            title = ' '.join(args[1:])
+        self.lists[self.cur_list].add(title)
 
-    def exit(self):
+    def do_status(self, line):
+        print self
+
+    def do_EOF(self, line):
+        s = raw_input("Save before exiting? (y/n) ")
+        if s == 'y':
+            self.do_save('')
+        return True
+
+    def do_save(self, line):
         '''saves collection and exits'''
-        def save():
-            with open(self.name + ".pkl", 'w') as f:
-                cPickle.dump(self.lists, f)
-        save()
+        with open(self.name + ".pkl", 'w') as f:
+            cPickle.dump(self.lists, f)
         sys.exit()
-
 
     def load(self, name):
         '''Given a name, load a collection of that name'''
@@ -230,4 +267,20 @@ class Collection():
 
     def __repr__(self):
         return ''.join([str(l) for l in self.lists])
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 1:
+        name = raw_input("Enter name of collection: ")
+        c = Collection(name).cmdloop()
+    elif len(sys.argv) == 2:
+        name = sys.argv[1]
+        c = Collection(name).cmdloop()
+    else:
+        name = sys.argv[1]
+        c = Collection(name)
+        print sys.argv[2:]
+        cmd.Cmd.onecmd(c, ' '.join(sys.argv[2:]))
+
+
 
