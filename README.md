@@ -1,7 +1,9 @@
 
 #MediaGrab
 
-MediaGrab easily creates organized lists of books, albums or movies. Once given the title of the work, MediaGrab will grab the full metadata for that item. The currently supported media types are albums, books, and movies (classes "Album," "Book," and "Movie" respectively). 
+MediaGrab easily creates organized lists of books, albums or movies. Once given the title of the work, MediaGrab will grab the full metadata for that item. Then you can see information about groups of items at a glance, and even get cool aggregate statistics. This can be used to keep track of books you read last year, or movies you want to see, or your personal CD collection.
+
+The currently supported media types are albums, books, and movies (classes "Album," "Book," and "Movie" respectively). 
 
 ## Getting Started
 
@@ -16,48 +18,29 @@ If not:
 ```bash
 easy_install requests
 ```
-## Using MediaGrab
-```bash
-python -i list.py
->>> c = Collection()
-Enter name of collection: Book & Movie Club 2000
-Creating new collection "Book & Movie Club 2000"
->>> c = Collection()
-Enter name of collection: Book & Movie Club - 2012
-Creating new collection "Book & Movie Club - 2012"
->>> c.add_list()
-Enter list type - (a)lbum, (b)ook, (m)ovie: b
-Enter list name: books
-Switched current list to new list "books"
->>> c.add_item()
-Adding to list "books" (media type: Book)
-Enter title of item: harry potter
-"Harry Potter and the Goblet of Fire" (J.K. Rowling). Is this correct? (y/n) y
->>> c.add_list()
-Enter list type - (a)lbum, (b)ook, (m)ovie: m
-Enter list name: movies
-Switched current list to new list "movies"
->>> c.add_item()
-Adding to list "movies" (media type: Movie)
-Enter title of item: harry potter
-"Harry Potter and the Sorcerer's Stone" (2001). Is this correct? (y/n) y
->>> c.switch_list()
-Which list to make active? books(0) movies(1) 0
->>> c.add_item()
-Adding to list "books" (media type: Book)
-Enter title of item: game of thrones
-"A Game of Thrones" (George R.R. Martin). Is this correct? (y/n) y
->>> c
-books, (media type: Book)
-----------------------
-"Harry Potter and the Goblet of Fire" (J.K. Rowling)
-"A Game of Thrones" (George R.R. Martin)
-----------------------
-movies, (media type: Movie)
-----------------------
-"Harry Potter and the Sorcerer's Stone" (2001)
-----------------------
->>> c.exit()
+### Get API keys
 
+You'll need a Google API Key, which you can get here: https://developers.google.com/books/docs/v1/using#APIKey
+
+Save that in a file named "my_google_api_key" in the mediaGrab directory. Now you're ready to start!
+
+## Using MediaGrab
+It's as easy as: 
+
+```bash
+python list.py
+(Cmd) help
 ```
 
+You can also load an existing collection: 
+
+```bash
+python list.py media_of_2012
+```
+
+You can also do one-liners instead of entering the interactive shell: 
+
+```bash
+python list.py media_of_2012 statistics
+(Cmd) help
+```
