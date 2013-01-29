@@ -42,5 +42,4 @@ You can also do one-liners instead of entering the interactive shell:
 
 ```bash
 python list.py media_of_2012 statistics
-(Cmd) help
 ```

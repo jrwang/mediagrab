@@ -232,6 +232,7 @@ class Album(Item):
         return ret
 
     def statistics(self, album_details):
+        print "Total albums: {}".format(len(album_details))
         print "Total tracks: {}".format(sum([a['trackCount'] for a in album_details]))
 
         top_genres = Counter([a['primaryGenreName'] for a in album_details])
