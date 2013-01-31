@@ -294,11 +294,11 @@ class Collection(cmd.Cmd):
         try: # load collection if it already exists
             self.load(name)
             print "Collection \"{}\" found, loading from save".format(name)
+            self.do_switch_list(self.lists[self.cur_list].name)
         except IOError:
             print "Couldn't find collection \"{}\", creating new collection".format(name)
             self.name = name
             self.lists = []
-        self.cur_list = 0
 
     def do_add_list(self, list_name):
         '''Add a list of media items. All items in list have the same media type. Usage: "add_list (<list_name>)"'''
