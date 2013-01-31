@@ -379,12 +379,11 @@ class Collection(cmd.Cmd):
             title = raw_input("Which item to star/unstar? ")
         desc, i, j = self.find(title)
         if desc:
-            star = self.lists[i].items[j].star
-            if star:
+            if self.lists[i].items[j].star:
                 print "Unstarred {}.".format(desc)
             else:
                 print "Starred {}.".format(desc)
-            star = not star
+            self.lists[i].items[j].star = not self.lists[i].items[j].star
 
     def do_remove(self, title):
         '''Delete an item completely from a list. Usage: "remove (<item_name>)"'''
@@ -417,10 +416,14 @@ class Collection(cmd.Cmd):
 
     def do_save(self, line):
         '''Saves collection. Usage: "save"'''
+        # back these up
+        stdin, stdout = self.__dict__['stdin'], self.__dict__['stdout']
+        del self.__dict__['stdin']
+        del self.__dict__['stdout']
         with open(self.name + ".pkl", 'w') as f:
-            del self.__dict__['stdin']
-            del self.__dict__['stdout']
             cPickle.dump(self.__dict__, f)
+        # now restore them
+        self.__dict__['stdin'], self.__dict__['stdout'] = stdin, stdout
 
     def do_details(self, title):
         '''Displays the details for a particular item. Usage: "details (<item_name>)'''
