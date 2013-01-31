@@ -221,7 +221,7 @@ class Album(Item):
         return r.json()['results']
 
     def info_to_title(self):
-        return self.details['collectionName']
+        return self.details[0]['collectionName']
 
     def give_details(self):
         keys = ['trackCount', 'artistName', 'collectionName', 'releaseDate', 'primaryGenreName', 'collectionPrice']
@@ -267,7 +267,7 @@ class List:
 
     def add(self, title):
         '''Add a media item to the list. We use Item.standardize() to pick the right one'''
-        print "Adding to list \"{}\" (media type: {})".format(self.name, self.item_type.__name__)
+        print "Adding \"{}\" to list \"{}\" (media type: {})".format(title, self.name, self.item_type.__name__)
         item = self.item_type(title)
         if item.standardize(): # make sure user picked an item 
             self.items.append(item)
