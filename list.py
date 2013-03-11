@@ -8,6 +8,9 @@ from copy import deepcopy
 from collections import Counter, defaultdict
 from datetime import *
 
+# -*- coding: utf-8 -*-
+
+
 #TODO: are multi-disc albums handled correctly?
 #TODO: make config file
 
@@ -54,7 +57,7 @@ class Item:
             self.ident = ident
             self.details = self.id_to_info()
             self.title = self.info_to_title()
-            q = raw_input('{}. Is this correct? (y/n) '.format(self))
+            q = raw_input(u"{}. Is this correct? (y/n) ".format(self).encode('utf-8')) # needs to be dually encoded because of raw_input bug? See http://bugs.python.org/issue7768
             if q == 'y': # metadata was already set, we can exit
                 return True
         # we went through all the results and user didn't choose one
@@ -111,7 +114,7 @@ class Movie(Item):
 
         total_t = timedelta()
         for m in movie_details:
-            h, m = movie_details[0]['Runtime'].encode('ascii').strip(' min').split(' h ')
+            h, m = movie_details[0]['Runtime'].strip(' min').split(' h ')
             total_t +=  timedelta(hours=int(h), minutes=int(m))
         days, hours, minutes = total_t.days, total_t.seconds/3600, (total_t.seconds/60) % 60
         print "Total runtime: {} days, {} hours, {} minutes".format(days, hours, minutes)
@@ -123,7 +126,7 @@ class Movie(Item):
     def __repr__(self):
         # "Up" (2009)
         star = '*' if self.star else ''
-        return "\"{}\" ({}){}".format(self.title, self.details['Year'], star)
+        return u"\"{}\" ({}){}".format(self.title, self.details['Year'], star).encode("utf-8")
 
 class Book(Item):
 
@@ -194,7 +197,7 @@ class Book(Item):
         height_l = []
         for b in book_details:
             if b['thickness'] is not None:
-                height_l.append(float(b['thickness'].strip(' cm').encode('ascii')))
+                height_l.append(float(b['thickness'].strip(' cm')))
             else:
                 height_l.append(None)
         print "Height of books if stacked (est.): {} cm".format(sum_with_sub(height_l))
@@ -203,7 +206,7 @@ class Book(Item):
     def __repr__(self):
         # "Animal Farm" - George Orwell
         star = '*' if self.star else ''
-        return "\"{}\" - {}{}".format(self.title, self.details['volumeInfo']['authors'][0], star)
+        return u"\"{}\" - {}{}".format(self.title, self.details['volumeInfo']['authors'][0], star).encode("utf-8")
 
 class Album(Item):
 
