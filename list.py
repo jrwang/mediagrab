@@ -269,11 +269,17 @@ class List:
         self.item_type = item_type # item type
 
     def add(self, title):
-        '''Add a media item to the list. We use Item.standardize() to pick the right one'''
+        '''Add a media item to the list. We use Item.standardize() to pick the right one.'''
         print "Adding \"{}\" to list \"{}\" (media type: {})".format(title, self.name, self.item_type.__name__)
+        # allow users to add a star in input
+        if title.endswith('*'):
+            title = title.rstrip('*')
+            starred = True
         item = self.item_type(title)
         if item.standardize(): # make sure user picked an item 
+            item.star = starred
             self.items.append(item)
+
 
     def statistics(self):
         print "{}, (media type: {})\n".format(self.name, self.item_type.__name__)
@@ -347,7 +353,7 @@ class Collection(cmd.Cmd):
             self.prompt = self.prompt.split(':')[0] + ':' + self.lists[self.cur_list].name + ') '
         
     def do_add_item(self, line):
-        '''Add a media item to a media list. Usage: "add_item (<item_name>)" to add to the active media list or "add_item (<list_name> <item_name>)" to add to any list.'''
+        '''Add a media item to a media list. Usage: "add_item (<item_name>)" to add to the active media list or "add_item (<list_name> <item_name>)" to add to any list. If there is a trailing asterisk (*), the item will be starred.'''
         if self.lists == []:
             print "Couldn't find any media lists. Add a list first (\"add_list\")."
             return -1
