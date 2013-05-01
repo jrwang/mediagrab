@@ -272,6 +272,7 @@ class List:
         '''Add a media item to the list. We use Item.standardize() to pick the right one.'''
         print "Adding \"{}\" to list \"{}\" (media type: {})".format(title, self.name, self.item_type.__name__)
         # allow users to add a star in input
+        starred = False
         if title.endswith('*'):
             title = title.rstrip('*')
             starred = True
