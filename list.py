@@ -23,7 +23,8 @@ class Item:
 
     def __init__(self, title):
         self.title = title
-        self.ident, self.details, self.star = None, None, False
+        self.ident, self.details, self.star, self.dl = None, None, False, False
+        self.dl, self.tid = -1, None # dl: -1 is "not started", 0 is "in progress", 1 is "done"
 
     #---------------------------------
     # subclasses must implement these methods
@@ -477,6 +478,14 @@ class Collection(cmd.Cmd):
 
     def __repr__(self):
         return ''.join([str(l) for l in self.lists])
+
+    # for when class definitions need changing
+    #
+    #def do_update(self, line):
+        #for l in self.lists:
+            #for i in l.items:
+                #i.dl, i.tid = -1, None # dl: -1 is "not started", 0 is "in progress", 1 is "done"
+        #print 'done'
 
 
 if __name__ == '__main__':

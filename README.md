@@ -18,6 +18,14 @@ If not:
 ```bash
 easy_install requests
 ```
+
+If you want to use "get.py", you'll need `deluge`, `deluge-console`, and `deluged`.
+```bash
+sudo apt-get install deluge
+sudo apt-get install deluge-console
+sudo apt-get install deluged
+```
+
 ### Get API keys
 
 You'll need a Google API Key, which you can get here: https://developers.google.com/books/docs/v1/using#APIKey
