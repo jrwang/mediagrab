@@ -1,267 +1,20 @@
-from statistics import *
-
+#!/usr/bin/env python
 import cPickle
 import sys
-import requests
 import cmd
 from copy import deepcopy
-from collections import Counter, defaultdict
 from datetime import *
 
-# -*- coding: utf-8 -*-
+from media import *
+import grab
 
 
+#TODO: add other methods of adding, e.g. discs through mediamonkey
+#TODO: do not allow duplicates
 #TODO: are multi-disc albums handled correctly?
 #TODO: make config file
+#TODO: "python list.py future add_item men in black 3" fails
 
-RESULTS_LIMIT = 5
-N = 5
-CAT_N = 3
-
-
-class Item:
-
-    def __init__(self, title):
-        self.title = title
-        self.ident, self.details, self.star, self.dl = None, None, False, False
-        self.dl, self.tid = -1, None # dl: -1 is "not started", 0 is "in progress", 1 is "done"
-
-    #---------------------------------
-    # subclasses must implement these methods
-    def title_to_ids(self):
-        '''Using self.title as a search term, return a list of unique IDs that may be our item'''
-        pass
-
-    def id_to_info(self):
-        '''Return metadata details for item with ID self.ident.
-        We assume that if we have a valid ID we can find info'''
-        pass
-
-    def info_to_title(self):
-        '''Return just the title from self.details'''
-        pass
-    
-    def statistics(self, item_type):
-        '''Prints statistics for a list of items of the specified type'''
-        pass
-    #---------------------------------
-
-    def standardize(self):
-        '''Given a search term, fetch a list of possible results using title_to_ids() and let the user pick one.
-        If an item is successfully picked, fetch the metadata for that item'''
-        id_l = self.title_to_ids()
-        if id_l == []:
-            print "No results found. Try using a different title search."
-            return None
-        for ident in id_l:
-            # set metadata as if this is the correct item (item is discarded if not chosen)
-            self.ident = ident
-            self.details = self.id_to_info()
-            self.title = self.info_to_title()
-            q = raw_input(u"{}. Is this correct? (y/n) ".format(self).encode('utf-8')) # needs to be dually encoded because of raw_input bug? See http://bugs.python.org/issue7768
-            if q == 'y': # metadata was already set, we can exit
-                return True
-        # we went through all the results and user didn't choose one
-        print "No candidates were satisfactory. Try adding another item or searching using a different title."
-        return None
-
-class Movie(Item):
-
-    def title_to_ids(self):
-        p = {'s' : self.title}
-        r = requests.get("http://www.omdbapi.com", params=p)
-        if 'Error' in r.json():
-            return []
-        else:
-            return [result['imdbID'] for result in r.json()['Search'][0:RESULTS_LIMIT]]
-
-    def id_to_info(self):
-        p = {'i' : self.ident}
-        r = requests.get("http://www.omdbapi.com", params=p)
-        return r.json()
-
-    def info_to_title(self):
-        return self.details['Title']
-
-    def give_details(self):
-        ret = {}
-        keys = ['Rated', 'Title', 'Actors', 'Year', 'Genre', 'Runtime', 'imdbRating']
-        for k in keys:
-            ret[k] = self.details[k]
-        return ret
-            
-    def statistics(self, movie_details):
-        print "Count: {}".format(len(movie_details))
-        top_rat = Counter([m['Rated'] for m in movie_details])
-        print "Top {} ratings: {}".format(CAT_N, counter_top(top_rat, CAT_N))
-
-        top_years = Counter([m['Year'] for m in movie_details])
-        print "Top {} years: {}".format(CAT_N, counter_top(top_years, CAT_N))
-        
-        # little complicated here since we want the movies each actor was in
-        top_actors = Counter()
-        actor_movie_d = defaultdict(list)
-        for actors, movie in [(m['Actors'], m['Title']) for m in movie_details]:
-            for act in actors.split(', '):
-                actor_movie_d[act].append(movie)
-                top_actors.update([act])
-        top_act_str = ''
-        for act, count in top_actors.most_common(CAT_N):
-            top_act_str += '{} - {} ({}), '.format(act, count, ', '.join(actor_movie_d[act]))
-        print "Top {} actors: {}".format(CAT_N, top_act_str[:-2])
-
-        top_genres = Counter(reduce(lambda a,b: a+b, [m['Genre'].split(', ') for m in movie_details]))
-        print "Top {} genres: {}".format(CAT_N, counter_top(top_genres, CAT_N))
-
-        total_t = timedelta()
-        for m in movie_details:
-            h, m = movie_details[0]['Runtime'].strip(' min').split(' h ')
-            total_t +=  timedelta(hours=int(h), minutes=int(m))
-        days, hours, minutes = total_t.days, total_t.seconds/3600, (total_t.seconds/60) % 60
-        print "Total runtime: {} days, {} hours, {} minutes".format(days, hours, minutes)
-
-        ratings = [float(m['imdbRating']) for m in movie_details]
-        print "Average IMDB rating: {:.2f}".format(sum(ratings)/len(ratings))
-        print "-----------------------------"
-
-    def __repr__(self):
-        # "Up" (2009)
-        star = '*' if self.star else ''
-        return u"\"{}\" ({}){}".format(self.title, self.details['Year'], star).encode("utf-8")
-
-class Book(Item):
-
-    def api_key(self):
-        try:
-            with open("my_google_api_key",'r') as f:
-                return f.readline()
-        except IOError:
-            print "Google API key not found!"
-            sys.exit()
-
-    def title_to_ids(self):
-        p = {'q' : self.title, 'key' : self.api_key(), 'printType' : 'books', 'langRestrict': 'en', 'maxResults' : RESULTS_LIMIT}
-        r = requests.get("https://www.googleapis.com/books/v1/volumes", params=p)
-        if 'items' not in r.json():
-            return []
-        else:
-            return [result['id'] for result in r.json()['items']]
-
-    def id_to_info(self):
-        p = {'key' : self.api_key(), 'printType': 'books', 'langRestrict': 'en', 'maxResults' : RESULTS_LIMIT}
-        r = requests.get("https://www.googleapis.com/books/v1/volumes/{}".format(self.ident), params=p)
-        return r.json()
-
-    def info_to_title(self):
-        return self.details['volumeInfo']['title']
-
-    def give_details(self):
-        def try_lookup(d, *keys):
-            '''Try a nested lookup. Return default value (None) if any part of lookup fails'''
-            for k in keys:
-                try:
-                    d = d[k]
-                except KeyError:
-                    return None
-            return d
-
-        keys = { 
-            'retailPrice': ['saleInfo', 'retailPrice', 'amount'], 
-            'listPrice': ['saleInfo', 'listPrice', 'amount'], 
-            'publishedDate': ['volumeInfo', 'publishedDate'], 
-            'pageCount': ['volumeInfo', 'pageCount'], 
-            'thickness': ['volumeInfo', 'dimensions', 'thickness'], 
-            'authors': ['volumeInfo', 'authors', 0], 
-            'title': ['volumeInfo', 'title'], 
-            'averageRating': ['volumeInfo', 'averageRating'], 
-            'categories': ['volumeInfo', 'categories', 0] 
-        }
-        return {k : try_lookup(self.details, *keys[k]) for k in keys}
-
-    def statistics(self, book_details):
-        print "Count: {}".format(len(book_details))
-        print "Total cost (est.): ${:.2f}".format(sum_with_sub([b['listPrice'] for b in book_details])) # since "retail price" is for ebook
-        print "Total pages (est.): {}".format(int(sum_with_sub([b['pageCount'] for b in book_details])))
-
-        top_auth = Counter([b['authors'] for b in book_details])
-        print "Top {} authors: {}".format(N, counter_top(top_auth, N))
-
-        categories = []
-        for b in book_details:
-            if b['categories']:
-                categories += b['categories'].split(' / ')
-        print "Top {} genres: {}".format(CAT_N, counter_top(Counter(categories), CAT_N))
-
-        ratings = filter(lambda x: x is not None, [b['averageRating'] for b in book_details])
-        print "Average book rating (out of 5): {:.2f}".format(float(sum(ratings))/len(ratings))
-
-        height_l = []
-        for b in book_details:
-            if b['thickness'] is not None:
-                height_l.append(float(b['thickness'].strip(' cm')))
-            else:
-                height_l.append(None)
-        print "Height of books if stacked (est.): {} cm".format(sum_with_sub(height_l))
-        print "-----------------------------"
-
-    def __repr__(self):
-        # "Animal Farm" - George Orwell
-        star = '*' if self.star else ''
-        return u"\"{}\" - {}{}".format(self.title, self.details['volumeInfo']['authors'][0], star).encode("utf-8")
-
-class Album(Item):
-
-    def title_to_ids(self):
-        p = {'term' : self.title, 'media' : 'music', 'entity' : 'album', 'attribute' : 'albumTerm', 'limit' : RESULTS_LIMIT}
-        r = requests.get("https://itunes.apple.com/search", params=p)
-        if r.json()['resultCount'] == 0:
-            return []
-        else:
-            return [result['collectionId'] for result in r.json()['results']]
-
-    def id_to_info(self):
-        p = {'id' : self.ident, 'entity': 'song'}
-        r = requests.get("https://itunes.apple.com/lookup", params=p)
-        return r.json()['results']
-
-    def info_to_title(self):
-        return self.details[0]['collectionName']
-
-    def give_details(self):
-        keys = ['trackCount', 'artistName', 'collectionName', 'releaseDate', 'primaryGenreName', 'collectionPrice']
-        ret = {k : self.details[0][k] for k in keys}
-        # get track details (list of dicts, each dict a subset of the track dicts in self.details)
-        track_keys = ['trackId', 'trackName', 'discNumber', 'trackNumber', 'trackTimeMillis']
-        ret['trackDetails'] = [{k : track[k] for k in track_keys} for track in self.details[1:]] # first is album info
-        return ret
-
-    def statistics(self, album_details):
-        print "Total albums: {}".format(len(album_details))
-        print "Total tracks: {}".format(sum([a['trackCount'] for a in album_details]))
-
-        top_genres = Counter([a['primaryGenreName'] for a in album_details])
-        print "Top {} genres: {}".format(CAT_N, counter_top(top_genres, CAT_N))
-
-        print "Total cost (iTunes): ${}".format(sum([a['collectionPrice'] for a in album_details]))
-
-        date_l = []
-        for date in [a['releaseDate'] for a in album_details]:
-            date_l.append(datetime.strptime(date, '%Y-%m-%dT%H:%M:%SZ'))
-        years = [date.year for date in date_l] 
-        avg_year = sum(years)/len(years) # just naively average years (integer division is fine)
-        print "Average year: {}".format(avg_year)
-
-        total_ms = sum([t['trackTimeMillis'] for t in a['trackDetails'] for a in album_details])
-        total_t = timedelta(milliseconds=total_ms)
-        days, hours, minutes = total_t.days, total_t.seconds/3600, (total_t.seconds/60) % 60
-        print "Total time: {} days, {} hours, {} minutes".format(days, hours, minutes)
-        print "-----------------------------"
-
-    def __repr__(self):
-        # "Make Believe" - Weezer (2005)
-        star = '*' if self.star else ''
-        return "\"{}\" - {} ({}){}".format(self.title, self.details[0]['artistName'], self.details[0]['releaseDate'][0:4], star)
-        
 class List:
     
     def __init__(self, name, item_type):
@@ -282,6 +35,17 @@ class List:
             item.star = starred
             self.items.append(item)
 
+    def add_mb(self, title):
+        item = Album('')
+        item.mb_shit(title)
+        self.items.append(item)
+
+    def get(self):
+        '''Get first undownloaded item of list'''
+        for item in self.items:
+            if item.dl != 1:
+                grab.grab(item)
+                break # grab first only
 
     def statistics(self):
         print "{}, (media type: {})\n".format(self.name, self.item_type.__name__)
@@ -302,6 +66,7 @@ class Collection(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.media_l = [Movie, Book, Album] # our allowed media types
         self.media_d = {m.__name__[0].lower() : m for m in self.media_l} # {'m' : Movie, 'b' : Book, ...}
+
         try: # load collection if it already exists
             self.load(name)
             print "Collection \"{}\" found, loading from save".format(name)
@@ -338,7 +103,6 @@ class Collection(cmd.Cmd):
             list_name = raw_input("Switch to which list? ")
         if self.lists == []:
             print "Couldn't find any media lists. Add a list first (\"add_list\")."
-            return -1
 
         found = False
         for i in range(len(self.lists)):
@@ -372,6 +136,26 @@ class Collection(cmd.Cmd):
             else:
                 title = ' '.join(args)
         self.lists[self.cur_list].add(title)
+
+    def do_add_mb(self, line):
+        '''BAD BAD BAD - for hacky music brainz items'''
+        try:
+            self.lists[self.cur_list].add_mb(line)
+        except IOError:
+            pass
+            print e
+            print e.args
+            print 'yer fucked'
+
+    def do_refresh_mb(self, line):
+        for i in range(len(self.lists)):
+            for j in range(len(self.lists[i].items)):
+                item = self.lists[i].items[j]
+                try:
+                    item.mb_shit(item.mb)
+                except:
+                    pass
+        
 
     def do_summary(self, line):
         '''Prints a summary of all lists and their items. Usage: "summary"'''
@@ -444,6 +228,13 @@ class Collection(cmd.Cmd):
         if item:
             print self.lists[i].items[j].give_details()
 
+    def do_get(self, line):
+        '''Get (download) the first media item from a list. Usage: "get" to use the active media list or "get <list_name>" to use a specfic media list'''
+        if line:
+            self.do_switch_list(line)
+        self.lists[self.cur_list].get()
+        print "Getting item {} from list {}".format(self.lists[self.cur_list].items[0], self.lists[self.cur_list].name)
+
     def do_statistics(self, line):
         '''Prints statistics for every list in the collection. Usage: "statistics"'''
         print "---------STATISTICS----------"
@@ -471,7 +262,9 @@ class Collection(cmd.Cmd):
         return None, None, None
 
     def load(self, name):
-        '''Given a name, load a collection of that name'''
+        '''Given a collection name or a .pkl file, load a collection of that name'''
+        if name.endswith(".pkl"): # treat .pkl files normally
+            name.rstrip(".pkl")
         with open(name + ".pkl", 'r') as f:
             self.__dict__ = cPickle.load(f)
             self.__dict__['stdin'], self.__dict__['stdout'] = sys.stdin, sys.stdout
@@ -479,13 +272,11 @@ class Collection(cmd.Cmd):
     def __repr__(self):
         return ''.join([str(l) for l in self.lists])
 
-    # for when class definitions need changing
-    #
-    #def do_update(self, line):
-        #for l in self.lists:
-            #for i in l.items:
-                #i.dl, i.tid = -1, None # dl: -1 is "not started", 0 is "in progress", 1 is "done"
-        #print 'done'
+    def help_help(self):
+        print 'show this help'
+
+
+        
 
 
 if __name__ == '__main__':
