@@ -1,5 +1,14 @@
+# OSX
+.DS_Store
+
+# python
 *.pyc
+*.pyo
 *.pkl
+
+# vim
 *.swp
+
+# keys
 my_amazon_access_key
 my_google_api_key
