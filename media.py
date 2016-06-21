@@ -118,7 +118,17 @@ class Movie(Item):
 
         total_t = datetime.timedelta()
         for m in movie_details:
-            h, m = movie_details[0]['Runtime'].strip(' min').split(' h ')
+            def parse_hours_minutes(time_str):
+                split = time_str.split(' ')
+                if 'm' in time_str and 'h' in time_str:
+                    return split[0], split[2]
+                elif 'm' in time_str:
+                    return '0', split[0]
+                elif 'h' in time_str:
+                    return split[0], '0'
+            #h, m = movie_details[0]['Runtime'].strip(' min').split(' h ')
+
+            h, m = parse_hours_minutes(movie_details[0]['Runtime'])
             total_t += datetime.timedelta(hours=int(h), minutes=int(m))
         days, hours, minutes = total_t.days, total_t.seconds/3600, (total_t.seconds/60) % 60
         print "Total runtime: {} days, {} hours, {} minutes".format(days, hours, minutes)
@@ -296,7 +306,7 @@ class Album(Item):
     def __repr__(self):
         # "Make Believe" - Weezer (2005)
         star = '*' if self.star else ''
-        return "\"{}\" - {} ({}){}".format(self.title, self.details[0]['artistName'], self.details[0]['releaseDate'][0:4], star)
+        return u"\"{}\" - {} ({}){}".format(self.title, self.details[0]['artistName'], self.details[0]['releaseDate'][0:4], star).encode("utf-8")
         
 class List:
     
